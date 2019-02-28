@@ -61,19 +61,13 @@ impl<T: PartialEq> PartialEq for Loc<T> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Node {
-    OpeningFragment,
-    ClosingFragment,
-    OpeningElement(OpeningElement),
-    ClosingElement(ClosingElement),
-    SelfClosingElement(SelfClosingElement),
+    // OpeningFragment,
+    // ClosingFragment,
+    // OpeningElement(OpeningElement),
+    // ClosingElement(ClosingElement),
+    // SelfClosingElement(SelfClosingElement),
     Element(ElementExpression),
     Fragment(FragmentExpression),
-}
-
-impl Node {
-    pub fn new<T: Into<Node>>(start: usize, end: usize, item: T) -> Self {
-        unimplemented!()
-    }
 }
 
 

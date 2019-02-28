@@ -455,6 +455,26 @@ impl<'a> Parser<'a> {
         Ok(children)
     }
 
+    pub fn try_parse_fragment(&mut self) -> Result<FragmentExpression, Error> {
+        // <> </>
+        if self.lexer.token != Token::FragmentOpen {
+            return Err(Error::UnexpectedToken);
+        }
+
+        let (start, end) = self.lexer.loc();
+
+        // jsx children
+        let children = self.parse_children()?;
+
+        if self.lexer.token != Token::FragmentClose {
+            return Err(Error::UnexpectedToken);
+        }
+
+        Ok(FragmentExpression {
+            children: children,
+        })
+    }
+
     pub fn parse(&mut self) -> Result<(), Error> {
         loop {
             self.lexer.consume()?;
@@ -489,28 +509,6 @@ impl<'a> Parser<'a> {
 
         Ok(())
     }
-
-    pub fn try_parse_fragment(&mut self) -> Result<FragmentExpression, Error> {
-        // <> </>
-        if self.lexer.token != Token::FragmentOpen {
-            return Err(Error::UnexpectedToken);
-        }
-
-        let (start, end) = self.lexer.loc();
-
-        // jsx children
-        let children = self.parse_children()?;
-
-        if self.lexer.token != Token::FragmentClose {
-            return Err(Error::UnexpectedToken);
-        }
-
-        Ok(FragmentExpression {
-            children: children,
-        })
-    }
-
-    
 }
 
 
