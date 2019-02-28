@@ -552,10 +552,11 @@ pub fn parse(source: &str) {
             debug(&code, (start, end));
 
             println!("latest token: {:?}", parser.lexer.token);
-            println!("{:?}({}:{}):", e, start, end);
+            println!("{:?}({}:{}): Text: {}", e, start, end, &code[start..end].iter().collect::<String>() );
+
         }
     }
 
-    std::thread::sleep(std::time::Duration::new(10, 0));
-    print!("len: {:?}", parser.body.len());
+    // std::thread::sleep(std::time::Duration::new(10, 0));
+    // print!("len: {:?}", parser.body.len());
 }
