@@ -304,7 +304,7 @@ impl<'a> Parser<'a> {
             OpeningOrSelfClosingElement::Opening((name, attrs)) => {
                 // jsx children
                 let children = self.parse_children()?;
-                
+
                 // jsx ClosingElement
                 let closing_elem = self.parse_closing_elem()?;
                 let name2 = closing_elem.name;
@@ -384,7 +384,7 @@ impl<'a> Parser<'a> {
         // JSXText
         // JSXElement
         // { JSXChildExpression }
-        assert_eq!(self.lexer.token, Token::ElementClose);
+        assert_eq!(self.lexer.token == Token::ElementClose || self.lexer.token == Token::FragmentOpen, true);
 
         let mut children: Vec<Child> = Vec::new();
 
@@ -423,7 +423,7 @@ impl<'a> Parser<'a> {
                 Token::EndOfProgram | Token::UnexpectedToken => {
                     unreachable!();
                 },
-                Token::ClosingElementOpen => {
+                Token::ClosingElementOpen | Token::FragmentClose => {
                     break;
                 },
                 _ => {
@@ -442,11 +442,10 @@ impl<'a> Parser<'a> {
             match self.lexer.token {
                 Token::FragmentOpen => {
                     let (start, end) = self.lexer.loc();
-                    self.body.push(Loc::new(start, end, Node::OpeningFragment));
-                },
-                Token::FragmentClose => {
-                    let (start, end) = self.lexer.loc();
-                    self.body.push(Loc::new(start, end, Node::ClosingFragment));
+                    let fragment_elem = self.try_parse_fragment()?;
+
+                    let node = Node::Fragment(fragment_elem);
+                    self.body.push(Loc::new(start, self.lexer.end(), node));
                 },
                 Token::ElementOpen => {
                     // <
@@ -471,11 +470,24 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    pub fn try_parse_jsx_fragment(&mut self) -> Result<FragmentExpression, Error> {
+    pub fn try_parse_fragment(&mut self) -> Result<FragmentExpression, Error> {
         // <> </>
+        if self.lexer.token != Token::FragmentOpen {
+            return Err(Error::UnexpectedToken);
+        }
+
         let (start, end) = self.lexer.loc();
 
-        unimplemented!()
+        // jsx children
+        let children = self.parse_children()?;
+
+        if self.lexer.token != Token::FragmentClose {
+            return Err(Error::UnexpectedToken);
+        }
+
+        Ok(FragmentExpression {
+            children: children,
+        })
     }
 
     

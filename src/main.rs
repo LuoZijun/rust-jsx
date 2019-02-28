@@ -40,10 +40,11 @@ pub fn compile(code: &str) {
 
 fn main() {
     let source = r#"
-
-<App name="str" num={ true } >
-    <div height={16}> hi </div>
-</App>
+<>
+    <App name="str" num={ true } >
+        <div height={16}> hi </div>
+    </App>
+</>
 
 "#;
     // lex::parse(source);

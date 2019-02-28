@@ -67,6 +67,7 @@ pub enum Node {
     ClosingElement(ClosingElement),
     SelfClosingElement(SelfClosingElement),
     Element(ElementExpression),
+    Fragment(FragmentExpression),
 }
 
 impl Node {
