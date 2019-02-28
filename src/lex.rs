@@ -51,6 +51,9 @@ pub struct Lexer<'a> {
     /// Position of current token in source
     token_start: usize,
     max_index: usize,
+
+    line: usize,
+    column: usize,
 }
 
 impl<'a> Lexer<'a> {
@@ -68,6 +71,8 @@ impl<'a> Lexer<'a> {
             index: 0,
             token_start: 0,
             max_index: if code_len == 0 { 0 } else { code_len - 1 },
+            line: 0,
+            column: 0,
         }
     }
 
@@ -164,6 +169,8 @@ impl<'a> Lexer<'a> {
                     }
                 },
                 '/' => {
+                    let token_start = self.token_start;
+
                     self.token_start = self.index;
                     self.bump().map_err(|_| Error::UnexpectedEndOfProgram)?;
 
@@ -178,8 +185,10 @@ impl<'a> Lexer<'a> {
                                 return self.bump();
                             },
                             _ => {
-                                self.token = Token::UnexpectedToken;
-                                return Err(Error::UnexpectedEndOfProgram);
+                                // self.token = Token::UnexpectedToken;
+                                self.token_start = token_start;
+                                // return Err(Error::UnexpectedEndOfProgram);
+                                break;
                             }
                         }
                     }
