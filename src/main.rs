@@ -4,6 +4,7 @@
 
 extern crate unicode_xid;
 
+use unicode_xid::UnicodeXID;
 
 
 pub mod error;
@@ -13,38 +14,35 @@ pub mod parser;
 pub mod transform;
 
 
-
 use crate::error::Error;
 
-use unicode_xid::UnicodeXID;
+
 use std::io::{ self, Read, Seek, SeekFrom, Cursor, };
+
 
 // https://facebook.github.io/jsx/
 
 
-fn debug(source: &str, (start, end): (usize, usize), token: lex::Token) {
-    let mut line_break: usize = end;
-    while &source[line_break..line_break+1] != "\n" && line_break < source.len() - 1 {
-        line_break += 1;
-    }
-    println!("{}", &source[..line_break]);
-    println!("token: {:?} {:?}", token, &source[start..end]);
-    println!("{}", &source[line_break..]);
-}
-
-
-pub fn compile(code: &str) {
-
-}
-
-
 fn main() {
     let source = r#"
+
 <>
     <App name="str" num={ true } >
         <div height={16}> hi </div>
     </App>
 </>
+
+<div style={styles.items} child=<h1>hi</h1> >
+    {
+        [].map(function (){
+            <div style={styles.item} key={index}>
+                <span style={styles.splitLine} />
+                <p style={styles.title}>{item.title}</p>
+              </div>
+        })
+    }
+  
+</div>
 
 "#;
     // lex::parse(source);

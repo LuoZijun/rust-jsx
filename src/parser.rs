@@ -50,11 +50,14 @@ impl<'a> Parser<'a> {
              }
 
              if self.lexer.token == Token::ElementOpen {
-                unimplemented!()
+                // TODO: 
+                let _ = self.parse_elem()?;
+
              }
 
              if self.lexer.token == Token::FragmentOpen {
-                unimplemented!()
+                // TODO:
+                let _ = self.try_parse_fragment()?;
              }
         }
 
@@ -177,10 +180,27 @@ impl<'a> Parser<'a> {
                 Ok(Some(initializer))
             },
             Token::ElementOpen => {
-                unimplemented!()
+                let start = self.lexer.end();
+                let elem = self.parse_elem()?;
+                let (_, end) = self.lexer.loc();
+
+                let initializer = NormalAttributeInitializer::ElementExpression(Loc::new(start, end, elem));
+
+                self.lexer.consume()?;
+
+                Ok(Some(initializer))
             },
             Token::FragmentOpen => {
-                unimplemented!()
+                let start = self.lexer.end();
+                let fragment_elem = self.try_parse_fragment()?;
+                let (_, end) = self.lexer.loc();
+
+                let initializer = NormalAttributeInitializer::FragmentExpression(Loc::new(start, end, fragment_elem));
+
+                self.lexer.consume()?;
+
+                Ok(Some(initializer))
+
             },
             _ => Err(Error::UnexpectedToken),
         }
@@ -493,6 +513,23 @@ impl<'a> Parser<'a> {
     
 }
 
+
+fn debug(source: &[char], (start, end): (usize, usize)) {
+    let mut line_break: usize = end;
+    while &source[line_break..line_break+1] != ['\n'] && line_break < source.len() - 1 {
+        line_break += 1;
+    }
+
+    for c in &source[..line_break] {
+        print!("{}", c);
+    }
+    print!("\n\n\n");
+
+    // println!("{}", &source[..line_break]);
+    // println!("token: {:?} {:?}", token, &source[start..end]);
+    // println!("{}", &source[line_break..]);
+}
+
 pub fn parse(source: &str) {
     let code = source.chars().collect::<Vec<char>>();
     let mut parser = Parser::new(&code);
@@ -503,8 +540,14 @@ pub fn parse(source: &str) {
         },
         Err(e) => {
             let (start, end) = parser.lexer.loc();
+
+            debug(&code, (start, end));
+
             println!("latest token: {:?}", parser.lexer.token);
-            println!("[ERROR] {:?} Loction: {:?} Text: {:?}", e, parser.lexer.loc(), &code[start..end] );
+            println!("{:?}({}:{}):", e, start, end);
+
+            
+            // &code[start..end]
         }
     }
 }
