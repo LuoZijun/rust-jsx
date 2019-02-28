@@ -1,0 +1,11 @@
+[package]
+name = "jsx"
+version = "0.1.0"
+authors = ["luozijun <luozijun.assistant@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+unicode-xid = "0.1.0"
+nom = "4.2.0"
+toolshed = "0.8"
+typed-arena = "1.4"
