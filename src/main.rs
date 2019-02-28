@@ -9,7 +9,7 @@ extern crate unicode_xid;
 pub mod error;
 pub mod lex;
 pub mod ast;
-// pub mod parser;
+pub mod parser;
 pub mod transform;
 
 
@@ -20,10 +20,6 @@ use unicode_xid::UnicodeXID;
 use std::io::{ self, Read, Seek, SeekFrom, Cursor, };
 
 // https://facebook.github.io/jsx/
-
-// React.createElement()
-// React.createElement(React.Fragment)
-pub static REACT_TARGET: (&'static str, &'static str) = ("React.createElement", "React.Fragment");
 
 
 fn debug(source: &str, (start, end): (usize, usize), token: lex::Token) {
@@ -44,14 +40,9 @@ pub fn compile(code: &str) {
 
 fn main() {
     let source = r#"
-< App:a >
-< / App >
-< asd ></ >
-
-<Foo / >
-<Bar {...props} >
+<App c={ true }> </App>
 
 "#;
-    lex::parse(source);
-    // parser::parse(source);
+    // lex::parse(source);
+    parser::parse(source);
 }
