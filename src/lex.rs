@@ -13,7 +13,7 @@ Assign         =
 Identifier     XidStart...XidContiue ...
 */
 
-#[derive(Debug, PartialEq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum Token {
     EndOfProgram,
     UnexpectedToken,
