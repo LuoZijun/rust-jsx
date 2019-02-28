@@ -29,6 +29,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[inline]
     pub fn parse_assignment_expression(&mut self) -> Result<AssignmentExpression, Error> {
         assert_eq!(self.lexer.token, Token::BraceOpen);
         let start = self.lexer.end();
@@ -57,7 +58,7 @@ impl<'a> Parser<'a> {
 
              if self.lexer.token == Token::FragmentOpen {
                 // TODO:
-                let _ = self.try_parse_fragment()?;
+                let _ = self.parse_fragment()?;
              }
         }
 
@@ -67,6 +68,7 @@ impl<'a> Parser<'a> {
         })
     }
 
+    #[inline]
     pub fn parse_elem_name(&mut self) -> Result<ElementName, Error> {
         // Name
         // Name:abc
@@ -119,6 +121,7 @@ impl<'a> Parser<'a> {
         Ok(name)
     }
 
+    #[inline]
     pub fn parse_elem_attr_name(&mut self) -> Result<NormalAttributeName, Error> {
         // displayName
         // displayName:subname
@@ -152,6 +155,7 @@ impl<'a> Parser<'a> {
         Ok(name)
     }
 
+    #[inline]
     pub fn parse_elem_attr_value(&mut self) -> Result<Option<NormalAttributeInitializer>, Error> {
         if self.lexer.token != Token::Assign {
             return Ok(None)
@@ -192,7 +196,7 @@ impl<'a> Parser<'a> {
             },
             Token::FragmentOpen => {
                 let start = self.lexer.end();
-                let fragment_elem = self.try_parse_fragment()?;
+                let fragment_elem = self.parse_fragment()?;
                 let (_, end) = self.lexer.loc();
 
                 let initializer = NormalAttributeInitializer::FragmentExpression(Loc::new(start, end, fragment_elem));
@@ -206,6 +210,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[inline]
     pub fn parse_elem_attr(&mut self) -> Result<Option<Attribute>, Error> {
         // { ...props }
         // displayName="value"
@@ -260,7 +265,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn try_parse_opening_or_self_closing_elem(&mut self) -> Result<OpeningOrSelfClosingElement, Error> {
+    #[inline]
+    pub fn parse_opening_or_self_closing_elem(&mut self) -> Result<OpeningOrSelfClosingElement, Error> {
         // <App />
         // <App>
         if self.lexer.token != Token::ElementOpen {
@@ -296,6 +302,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[inline]
     pub fn parse_closing_elem(&mut self) -> Result<ClosingElement, Error> {
         if self.lexer.token != Token::ClosingElementOpen {
             return Err(Error::UnexpectedToken);
@@ -313,12 +320,13 @@ impl<'a> Parser<'a> {
         })
     }
 
+    #[inline]
     pub fn parse_elem(&mut self) -> Result<ElementExpression, Error> {
         if self.lexer.token != Token::ElementOpen {
             return Err(Error::UnexpectedToken);
         }
 
-        let opening_or_self_closing_elem = self.try_parse_opening_or_self_closing_elem()?;
+        let opening_or_self_closing_elem = self.parse_opening_or_self_closing_elem()?;
 
         match opening_or_self_closing_elem {
             OpeningOrSelfClosingElement::Opening((name, attrs)) => {
@@ -400,6 +408,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[inline]
     pub fn parse_children(&mut self) -> Result<Vec<Child>, Error> {
         // JSXText
         // JSXElement
@@ -455,7 +464,8 @@ impl<'a> Parser<'a> {
         Ok(children)
     }
 
-    pub fn try_parse_fragment(&mut self) -> Result<FragmentExpression, Error> {
+    #[inline]
+    pub fn parse_fragment(&mut self) -> Result<FragmentExpression, Error> {
         // <> </>
         if self.lexer.token != Token::FragmentOpen {
             return Err(Error::UnexpectedToken);
@@ -482,7 +492,7 @@ impl<'a> Parser<'a> {
             match self.lexer.token {
                 Token::FragmentOpen => {
                     let (start, end) = self.lexer.loc();
-                    let fragment_elem = self.try_parse_fragment()?;
+                    let fragment_elem = self.parse_fragment()?;
 
                     let node = Node::Fragment(fragment_elem);
                     self.body.push(Loc::new(start, self.lexer.end(), node));
@@ -543,9 +553,9 @@ pub fn parse(source: &str) {
 
             println!("latest token: {:?}", parser.lexer.token);
             println!("{:?}({}:{}):", e, start, end);
-
-            
-            // &code[start..end]
         }
     }
+
+    std::thread::sleep(std::time::Duration::new(10, 0));
+    print!("len: {:?}", parser.body.len());
 }
