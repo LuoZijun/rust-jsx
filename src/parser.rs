@@ -7,6 +7,7 @@ use crate::ast::{
     ElementName, MemberExpression, NamespacedName, 
     Attribute, NormalAttribute, NormalAttributeName, NormalAttributeInitializer,
 
+    OpeningOrSelfClosingElement,
     OpeningElement, ClosingElement, SelfClosingElement, 
     
     Child, 
@@ -115,10 +116,136 @@ impl<'a> Parser<'a> {
         Ok(name)
     }
 
-    pub fn try_parse_jsx_opening_elem(&mut self) -> Result<(), Error> {
+    pub fn parse_elem_attr_name(&mut self) -> Result<NormalAttributeName, Error> {
+        // displayName
+        // displayName:subname
+
+        let (start, end) = self.lexer.loc();
+        if self.lexer.token != Token::Identifier {
+            return Err(Error::UnexpectedToken);
+        }
+
+        let ns = Loc::new(self.lexer.start(), self.lexer.end(), self.lexer.token);
+        self.lexer.consume()?;
+
+        let name: NormalAttributeName;
+        match self.lexer.token {
+            Token::Colon => {
+                self.lexer.consume()?;
+                if self.lexer.token != Token::Identifier {
+                    return Err(Error::UnexpectedToken);
+                }
+
+                let subname = Loc::new(self.lexer.start(), self.lexer.end(), self.lexer.token);
+                name = NormalAttributeName::NamespacedName(NamespacedName { ns, name: subname });
+
+                self.lexer.consume()?;
+            },
+            _ => {
+                name = NormalAttributeName::Identifier(ns);
+            }
+        }
+
+        Ok(name)
+    }
+
+    pub fn parse_elem_attr_value(&mut self) -> Result<Option<NormalAttributeInitializer>, Error> {
+        if self.lexer.token != Token::Assign {
+            return Ok(None)
+        }
+
+        self.lexer.consume()?;
+
+        match self.lexer.token {
+            Token::LiteralString => {
+                let (start, end) = self.lexer.loc();
+                let initializer = NormalAttributeInitializer::LiteralString(Loc::new(start, end, self.lexer.token));
+
+                self.lexer.consume()?;
+
+                Ok(Some(initializer))
+            },
+            Token::BraceOpen => {
+                let start = self.lexer.end();
+                let assignment_expression = self.parse_assignment_expression()?;
+                let (_, end) = self.lexer.loc();
+
+                let initializer = NormalAttributeInitializer::AssignmentExpression(Loc::new(start, end, assignment_expression));
+
+                self.lexer.consume()?;
+
+                Ok(Some(initializer))
+            },
+            Token::ElementOpen => {
+                unimplemented!()
+            },
+            Token::FragmentOpen => {
+                unimplemented!()
+            },
+            _ => Err(Error::UnexpectedToken),
+        }
+    }
+
+    pub fn parse_elem_attr(&mut self) -> Result<Option<Attribute>, Error> {
+        // { ...props }
+        // displayName="value"
+        // displayName={ true }
+        // displayName=<></>
+        // displayName=<App />
+        // displayName=<App></App>
+        match self.lexer.token {
+            Token::BraceOpen => {
+                // Spread Attribute
+                let (start, end) = self.lexer.loc();
+
+                self.lexer.consume()?;
+                if self.lexer.token != Token::Spread {
+                    return Err(Error::UnexpectedToken);
+                }
+
+                self.lexer.consume()?;
+                if self.lexer.token != Token::Identifier {
+                    return Err(Error::UnexpectedToken);
+                }
+
+                let attr = Attribute::Spread(Loc::new(self.lexer.start(), self.lexer.end(), self.lexer.token));
+
+                self.lexer.consume()?;
+                if self.lexer.token != Token::BraceClose {
+                    return Err(Error::UnexpectedToken);
+                }
+
+                self.lexer.consume()?;
+
+
+                Ok(Some(attr))
+            },
+            Token::Identifier => {
+                // Normal Attribute
+                let (start, end) = self.lexer.loc();
+                
+                let name = self.parse_elem_attr_name()?;
+                let init = self.parse_elem_attr_value()?;
+
+                let attr = NormalAttribute {
+                    name: name,
+                    init: init,
+                };
+
+                Ok(Some(Attribute::Normal(attr)))
+            },
+            _ => {
+                Ok(None)
+            },
+        }
+    }
+
+    pub fn try_parse_opening_or_self_closing_elem(&mut self) -> Result<OpeningOrSelfClosingElement, Error> {
         // <App />
         // <App>
-        assert_eq!(self.lexer.token, Token::ElementOpen);
+        if self.lexer.token != Token::ElementOpen {
+            return Err(Error::UnexpectedToken);
+        }
 
         let (start, end) = self.lexer.loc();
 
@@ -129,114 +256,183 @@ impl<'a> Parser<'a> {
         // Attrs
         let mut attrs: Vec<Attribute> = Vec::new();
         loop {
-            
-            match self.lexer.token {
-                Token::Identifier => {
-                    // Normal Attribute
-                    let (start, end) = self.lexer.loc();
-
-                    let ns = Loc::new(self.lexer.start(), self.lexer.end(), self.lexer.token);
-
-                    let attr_name: NormalAttributeName;
-                    let mut attr_name_end = end;
-
-                    self.lexer.consume()?;
-                    if self.lexer.token == Token::Colon {
-                        self.lexer.consume()?;
-                        if self.lexer.token != Token::Identifier {
-                            return Err(Error::UnexpectedToken);
-                        }
-
-                        let subname = Loc::new(self.lexer.start(), self.lexer.end(), self.lexer.token);
-                        attr_name_end = subname.end;
-                        attr_name = NormalAttributeName::NamespacedName(NamespacedName { ns: ns, name: subname });
-                    } else {
-                        attr_name = NormalAttributeName::Identifier(ns);
-                    }
-
-                    // Value
-                    let mut init: Option<NormalAttributeInitializer> = None;
-                    let mut init_end = attr_name_end;
-
-                    if self.lexer.token == Token::Assign {
-                        self.lexer.consume()?;
-                        if self.lexer.token == Token::LiteralString {
-                            init_end = self.lexer.end();
-                            let initializer = NormalAttributeInitializer::LiteralString(Loc::new(self.lexer.start(), self.lexer.end(), self.lexer.token));
-                            init = Some(initializer);
-                        } else if self.lexer.token == Token::BraceOpen {
-                            let start = self.lexer.end();
-                            let assignment_expression = self.parse_assignment_expression()?;
-                            init_end = self.lexer.end();
-                            
-                            let initializer = NormalAttributeInitializer::AssignmentExpression(Loc::new(start, init_end, assignment_expression));
-                            init = Some(initializer);
-                        } else if self.lexer.token == Token::ElementOpen {
-                            unimplemented!()
-                        } else if self.lexer.token == Token::FragmentOpen {
-                            unimplemented!()
-                        } else {
-                            return Err(Error::UnexpectedToken);
-                        }
-                    }
-
-                    let attr = NormalAttribute {
-                        name: attr_name,
-                        init: init,
-                    };
-                    attrs.push(Attribute::Normal(attr));
-                },
-                Token::BraceOpen => {
-                    // Spread Attribute
-                    let (start, end) = self.lexer.loc();
-
-                    self.lexer.consume()?;
-                    if self.lexer.token != Token::Spread {
-                        return Err(Error::UnexpectedToken);
-                    }
-
-                    self.lexer.consume()?;
-                    if self.lexer.token != Token::Identifier {
-                        return Err(Error::UnexpectedToken);
-                    }
-
-                    let attr = Attribute::Spread(Loc::new(self.lexer.start(), self.lexer.end(), self.lexer.token));
-
-                    self.lexer.consume()?;
-                    if self.lexer.token != Token::BraceClose {
-                        return Err(Error::UnexpectedToken);
-                    }
-
-                    attrs.push(attr);
-                },
-                _ => {
-                    break;
-                },
+            if let Some(attr) = self.parse_elem_attr()? {
+                attrs.push(attr);
+            } else {
+                break;
             }
         }
 
-        self.lexer.consume()?;
         match self.lexer.token {
             Token::ElementClose => {
-                let opening_elem = OpeningElement {
-                    name: name,
-                    attrs: attrs,
-                };
-                self.body.push(Loc::new(start, self.lexer.end(), Node::OpeningElement(opening_elem) ));
+                Ok(OpeningOrSelfClosingElement::Opening((name,attrs )))
             },
             Token::SelfClosingElementClose => {
-                let self_closing_elem = SelfClosingElement {
-                    name: name,
-                    attrs: attrs,
-                };
-                self.body.push(Loc::new(start, self.lexer.end(), Node::SelfClosingElement(self_closing_elem) ));
+                Ok(OpeningOrSelfClosingElement::SelfClosing((name,attrs )))
             },
             _ => {
-                return Err(Error::UnexpectedToken);
+                Err(Error::UnexpectedToken)
             }
         }
-        
-        Ok(())
+    }
+
+    pub fn parse_closing_elem(&mut self) -> Result<ClosingElement, Error> {
+        if self.lexer.token != Token::ClosingElementOpen {
+            return Err(Error::UnexpectedToken);
+        }
+    
+        self.lexer.consume()?;
+        let name = self.parse_elem_name()?;
+
+        if self.lexer.token != Token::ElementClose {
+            return Err(Error::UnexpectedToken);
+        }
+
+        Ok(ClosingElement {
+            name: name,
+        })
+    }
+
+    pub fn parse_elem(&mut self) -> Result<ElementExpression, Error> {
+        if self.lexer.token != Token::ElementOpen {
+            return Err(Error::UnexpectedToken);
+        }
+
+        let opening_or_self_closing_elem = self.try_parse_opening_or_self_closing_elem()?;
+
+        match opening_or_self_closing_elem {
+            OpeningOrSelfClosingElement::Opening((name, attrs)) => {
+                // jsx children
+                let children = self.parse_children()?;
+                
+                // jsx ClosingElement
+                let closing_elem = self.parse_closing_elem()?;
+                let name2 = closing_elem.name;
+
+                let is_name_eq = match name {
+                    ElementName::Identifier(loc_token) => {
+                        match name2 {
+                            ElementName::Identifier(loc_token2) => {
+                                let a = self.lexer.slice_source(loc_token.start, loc_token.end);
+                                let b = self.lexer.slice_source(loc_token2.start, loc_token2.end);
+                                a == b
+                            },
+                            _ => { false }
+                        }
+                    },
+                    ElementName::NamespacedName(ref name_spaced_name) => {
+                        match name2 {
+                            ElementName::NamespacedName(name_spaced_name2) => {
+                                let a = self.lexer.slice_source(name_spaced_name.ns.start, name_spaced_name.ns.end);
+                                let b = self.lexer.slice_source(name_spaced_name2.ns.start, name_spaced_name2.ns.end);
+
+                                let c = self.lexer.slice_source(name_spaced_name.name.start, name_spaced_name.name.end);
+                                let d = self.lexer.slice_source(name_spaced_name2.name.start, name_spaced_name2.name.end);
+
+                                a == b && c == d
+                            },
+                            _ => { false }
+                        }
+                    },
+                    ElementName::MemberExpression(ref member_expr) => {
+                        match name2 {
+                            ElementName::MemberExpression(member_expr2) => {
+                                let a = member_expr.members.iter()
+                                    .map(|loc_token| {
+                                        self.lexer.slice_source(loc_token.start, loc_token.end)
+                                    });
+                                let b = member_expr2.members.iter()
+                                    .map(|loc_token| {
+                                        self.lexer.slice_source(loc_token.start, loc_token.end)
+                                    });
+                                a.zip(b).map(|(c, d)| {
+                                    c == d
+                                }).all(|ret| ret == true )
+                            },
+                            _ => { false }
+                        }
+                    },
+                };
+
+                if is_name_eq == false {
+                    return Err(Error::UnexpectedToken);
+                }
+
+                let elem = ElementExpression {
+                    is_self_closing: false,
+                    name: name,
+                    attrs: attrs,
+                    children: Some(children),
+                };
+
+                Ok(elem)
+            },
+            OpeningOrSelfClosingElement::SelfClosing((name, attrs)) => {
+                let elem = ElementExpression {
+                    is_self_closing: true,
+                    name: name,
+                    attrs: attrs,
+                    children: None,
+                };
+
+                Ok(elem)
+            },
+        }
+    }
+
+    pub fn parse_children(&mut self) -> Result<Vec<Child>, Error> {
+        // JSXText
+        // JSXElement
+        // { JSXChildExpression }
+        assert_eq!(self.lexer.token, Token::ElementClose);
+
+        let mut children: Vec<Child> = Vec::new();
+
+        let start = self.lexer.end();
+
+        let mut text_child: Text = Text { start: self.lexer.end(), end: self.lexer.end() };
+
+        loop {
+            self.lexer.consume()?;
+            match self.lexer.token {
+                Token::ElementOpen => {
+                    text_child.end = self.lexer.start();
+                    if text_child.end > text_child.start {
+                        children.push(Child::Text( Loc::new(text_child.start, text_child.end, text_child) ));
+                    }
+
+                    let elem = self.parse_elem()?;
+
+                    children.push(Child::Element( elem ));
+
+                    text_child.start = self.lexer.end();
+                    text_child.end = self.lexer.end();
+                },
+                Token::BraceOpen => {
+                    text_child.end = self.lexer.start();
+                    if text_child.end > text_child.start {
+                        children.push(Child::Text( Loc::new(text_child.start, text_child.end, text_child) ));
+                    }
+
+                    let assignment_expression = self.parse_assignment_expression()?;
+                    children.push(Child::ChildExpression( assignment_expression ));
+
+                    text_child.start = self.lexer.end();
+                    text_child.end = self.lexer.end();
+                },
+                Token::EndOfProgram | Token::UnexpectedToken => {
+                    unreachable!();
+                },
+                Token::ClosingElementOpen => {
+                    break;
+                },
+                _ => {
+
+                }
+            }
+        }
+
+        Ok(children)
     }
 
     pub fn parse(&mut self) -> Result<(), Error> {
@@ -257,19 +453,10 @@ impl<'a> Parser<'a> {
                     // <aaa>
                     // <aa />
                     let start = self.lexer.start();
-                    let _ = self.try_parse_jsx_opening_elem();
-                },
-                Token::ClosingElementOpen => {
-                    // </
-                    // </App>
-                    let (start, end) = self.lexer.loc();
+                    let elem = self.parse_elem()?;
 
-                    self.lexer.consume()?;
-                    let name = self.parse_elem_name()?;
-                    let node = Node::ClosingElement( ClosingElement { name, });
-
-                    let end = self.lexer.end();
-                    self.body.push(Loc::new(start, end, node));
+                    let node = Node::Element(elem);
+                    self.body.push(Loc::new(start, self.lexer.end(), node));
                 },
                 Token::EndOfProgram | Token::UnexpectedToken => {
                     // Should return error.
@@ -303,7 +490,9 @@ pub fn parse(source: &str) {
             println!("{:?}", parser.body);
         },
         Err(e) => {
-            println!("[ERROR] {:?} Loction: {:?}", e, parser.lexer.loc());
+            let (start, end) = parser.lexer.loc();
+            println!("latest token: {:?}", parser.lexer.token);
+            println!("[ERROR] {:?} Loction: {:?} Text: {:?}", e, parser.lexer.loc(), &code[start..end] );
         }
     }
 }

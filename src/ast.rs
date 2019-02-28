@@ -66,6 +66,7 @@ pub enum Node {
     OpeningElement(OpeningElement),
     ClosingElement(ClosingElement),
     SelfClosingElement(SelfClosingElement),
+    Element(ElementExpression),
 }
 
 impl Node {
@@ -120,6 +121,13 @@ pub enum Attribute {
     Spread(Loc<Token>),
 }
 
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum OpeningOrSelfClosingElement {
+    Opening((ElementName, Vec<Attribute>)),
+    SelfClosing((ElementName, Vec<Attribute>)),
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct OpeningElement {
     pub name: ElementName,
@@ -137,14 +145,14 @@ pub struct SelfClosingElement {
     pub attrs: Vec<Attribute>,
 }
 
-
-#[derive(Debug, PartialEq, Clone)]
+// SourceCharacter but not one of {, <, > or }
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Text {
     pub start: usize,
     pub end: usize,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ChildExpression {
     pub start: usize,
     pub end: usize,
@@ -153,20 +161,21 @@ pub struct ChildExpression {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Child {
     Text(Loc<Text>),
-    Element(Loc<ElementExpression>),
-    ChildExpression(Vec<Loc<ChildExpression>>),
+    Element(ElementExpression),
+    ChildExpression(AssignmentExpression),
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FragmentExpression {
-    pub children: Vec<Loc<Child>>,
+    pub children: Vec<Child>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ElementExpression {
     pub is_self_closing: bool,
-    pub name: Loc<Token>,
+    pub name: ElementName,
     pub attrs: Vec<Attribute>,
+    pub children: Option<Vec<Child>>,
 }
 
 
